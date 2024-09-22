@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useRef, useEffect } from 'react'
-import { ChevronDown, Plus, CheckCircle2 } from 'lucide-react'
+import { ChevronDown, Plus, CheckCircle2, ChevronUp, ChevronDown as ChevronDownIcon } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
@@ -43,9 +43,18 @@ export default function SqlQueryInterface() {
   const [activeTab, setActiveTab] = useState('1')
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(false) // Loading state
+  const [sortConfig, setSortConfig] = useState<{ key: number, direction: 'asc' | 'desc' } | null>(null)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const preRef = useRef<HTMLPreElement>(null)
+
+  // Prevent body from scrolling
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = 'auto'
+    }
+  }, [])
 
   const addTab = () => {
     const newTab = {
@@ -131,6 +140,9 @@ export default function SqlQueryInterface() {
       setTabs(prevTabs => prevTabs.map(tab => 
         tab.id === activeTab ? { ...tab, queryResult: updatedQueryResult, executionTime: performance.now() - startTime } : tab
       ))
+
+      // Reset sorting after new query
+      setSortConfig(null)
     } catch (error: any) {
       console.error('Error running query:', error)
       const errorResult: QueryResult = {
@@ -141,6 +153,9 @@ export default function SqlQueryInterface() {
       setTabs(prevTabs => prevTabs.map(tab => 
         tab.id === activeTab ? { ...tab, queryResult: errorResult, executionTime: performance.now() - startTime } : tab
       ))
+
+      // Reset sorting in case of error
+      setSortConfig(null)
     } finally {
       setIsLoading(false) // End loading
     }
@@ -181,7 +196,19 @@ export default function SqlQueryInterface() {
     }
   }
 
-  const sortColumn = (columnIndex: number) => {
+  /**
+   * Handles sorting when a column header is clicked.
+   * @param columnIndex - The index of the column to sort.
+   */
+  const handleSort = (columnIndex: number) => {
+    let direction: 'asc' | 'desc' = 'asc'
+
+    if (sortConfig && sortConfig.key === columnIndex && sortConfig.direction === 'asc') {
+      direction = 'desc'
+    }
+
+    setSortConfig({ key: columnIndex, direction })
+
     setTabs(prevTabs => prevTabs.map(tab => {
       if (tab.id === activeTab && tab.queryResult) {
         const sortedRows = [...tab.queryResult.rows].sort((a, b) => {
@@ -190,9 +217,11 @@ export default function SqlQueryInterface() {
           
           // Handle different data types
           if (typeof aVal === 'number' && typeof bVal === 'number') {
-            return aVal - bVal
+            return direction === 'asc' ? aVal - bVal : bVal - aVal
           }
-          return String(aVal).localeCompare(String(bVal))
+          return direction === 'asc' 
+            ? String(aVal).localeCompare(String(bVal))
+            : String(bVal).localeCompare(String(aVal))
         })
         return { ...tab, queryResult: { ...tab.queryResult, rows: sortedRows } }
       }
@@ -215,24 +244,25 @@ export default function SqlQueryInterface() {
     }
   }, [activeTab, tabs])
 
-  const currentTab = tabs.find(tab => tab.id === activeTab)
+  // Using non-null assertion operator since tabs always have at least one tab
+  const currentTab = tabs.find(tab => tab.id === activeTab)! 
 
   return (
-    <div className="relative">
-      {/* Logo Header */}
-      <div className="fixed top-0 left-0 right-0 flex justify-center bg-white z-50 p-4">
-        <img src="/logo.png" alt="Logo" className="h-48" />
+    <div className="flex min-h-screen overflow-hidden"> {/* Prevent scrolling on the main container */}
+      {/* Sidebar with Logo */}
+      <div className="flex-shrink-0 bg-white border-r border-gray-200 p-4">
+        <img src="/logo.png" alt="Logo" className="h-72" /> {/* Positioned on the left with no padding/margin */}
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto p-4 bg-white pt-48">
+      <div className="flex-grow p-2"> {/* Reduced padding to move content more to the left */}
         {/* Tab Navigation */}
         <div className="flex items-center border-b border-gray-200">
           {tabs.map(tab => (
             <div key={tab.id} className="flex items-center mr-2">
               <button
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center px-4 py-2 text-sm font-medium rounded-t text-gray-800`}
+                className={`flex items-center px-4 py-2 text-sm font-medium rounded-t text-gray-800 hover:bg-gray-100`}
               >
                 {activeTab === tab.id && <CheckCircle2 className="w-4 h-4 mr-2 text-blue-600" />}
                 {renamingTabId === tab.id ? (
@@ -300,7 +330,7 @@ export default function SqlQueryInterface() {
           />
           <pre
             ref={preRef}
-            className="absolute top-0 left-0 p-2 w-full h-full overflow-auto z-0 text-left bg-transparent pointer-events-none"
+            className="absolute top-0 left-0 p-2 w-full h-full overflow-hidden z-0 text-left bg-transparent pointer-events-none"
             style={{
               lineHeight: '1.5',
               fontFamily: 'monospace',
@@ -331,37 +361,60 @@ export default function SqlQueryInterface() {
           <div className="mt-4">
             <div className="flex justify-between items-center mb-2">
               <h2 className="text-lg font-semibold">Results:</h2>
-              {/* <Button variant="outline" size="sm" disabled>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Visualization
-              </Button> */}
               {/* Placeholder for future visualization feature */}
             </div>
-            <div className="overflow-x-auto border rounded-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-100">
-                    {currentTab.queryResult.columns.map((column, index) => (
-                      <TableHead
-                        key={index}
-                        onClick={() => sortColumn(index)}
-                        className="cursor-pointer font-semibold"
-                      >
-                        {column}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {currentTab.queryResult.rows.map((row, rowIndex) => (
-                    <TableRow key={rowIndex}>
-                      {row.map((cell, cellIndex) => (
-                        <TableCell key={cellIndex}>{cell}</TableCell>
+            <div className="border rounded-lg">
+              <div className="max-h-96 overflow-auto"> {/* Set a max height and make it scrollable */}
+                <Table className="table-auto w-full">
+                  <TableHeader>
+                    <TableRow className="bg-gray-100">
+                      {currentTab.queryResult.columns.map((column, index) => (
+                        <TableHead
+                          key={index}
+                          className={`cursor-pointer font-semibold text-left ${
+                            index !== currentTab.queryResult!.columns.length - 1 ? 'border-r border-gray-300' : ''
+                          }`}
+                        >
+                          <div className="flex items-center">
+                            <span>{column}</span>
+                            <button
+                              onClick={() => handleSort(index)}
+                              className="ml-1 p-1 focus:outline-none"
+                              aria-label={`Sort by ${column}`}
+                            >
+                              {sortConfig?.key === index ? (
+                                sortConfig.direction === 'asc' ? (
+                                  <ChevronUp className="w-3 h-3" />
+                                ) : (
+                                  <ChevronDownIcon className="w-3 h-3" />
+                                )
+                              ) : (
+                                <ChevronDownIcon className="w-3 h-3 rotate-180" />
+                              )}
+                            </button>
+                          </div>
+                        </TableHead>
                       ))}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {currentTab.queryResult.rows.map((row, rowIndex) => (
+                      <TableRow key={rowIndex}>
+                        {row.map((cell, cellIndex) => (
+                          <TableCell
+                            key={cellIndex}
+                            className={`text-left ${
+                              cellIndex !== currentTab.queryResult!.columns.length - 1 ? 'border-r border-gray-200' : ''
+                            }`}
+                          >
+                            {cell}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
             {currentTab.executionTime !== null && (
               <p className="mt-2 text-sm text-gray-500">
