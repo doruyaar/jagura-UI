@@ -12,8 +12,8 @@ const highlightSQL = (sql: string) => {
     .replace(/>/g, '&gt;')
 
   // Define regex patterns with word boundaries for accurate matching
-  const keywords = /\b(SELECT|FROM|WHERE|CREATE|TABLE|INSERT|INTO|VALUES|UPDATE|DELETE|DROP|ALTER|INDEX|VIEW)\b/gi
-  const operators = /\b(\*|=|\+|-|\/|>|<|>=|<=|<>|!=|IS|NULL|AND|OR|LIKE|IN|BETWEEN|EXISTS)\b/gi
+  const keywords = /\b(SELECT|FROM|CREATE|TABLE|INSERT|INTO|VALUES|UPDATE|DELETE|DROP|ALTER|INDEX|VIEW|LAUNCH|SHOW)\b/gi
+  const operators = /\b(\*|=|\+|-|\/|>|<|>=|<=|<>|!=|IS|NULL|AND|OR|LIKE|IN|BETWEEN|EXISTS|TABLES|WHERE)\b/gi
 
   // Apply syntax highlighting
   const highlighted = escapedSql
@@ -42,6 +42,7 @@ export default function SqlQueryInterface() {
   ])
   const [activeTab, setActiveTab] = useState('1')
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState<boolean>(false) // Loading state
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const preRef = useRef<HTMLPreElement>(null)
@@ -79,6 +80,12 @@ export default function SqlQueryInterface() {
     if (!currentTab) return // Early exit if currentTab is undefined
 
     const query = selectedText || currentTab.content || ''
+    if (query.trim() === '') {
+      alert('Please enter a SQL query to execute.')
+      return
+    }
+    
+    setIsLoading(true) // Start loading
     const startTime = performance.now()
 
     try {
@@ -88,42 +95,60 @@ export default function SqlQueryInterface() {
         body: JSON.stringify({ query })
       })
 
-      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(`Server responded with status ${response.status}`)
+      }
+
+      const jsonRes = await response.json() as {result: any[][]}
+      const data: any[][] = jsonRes.result
+
+      if (!Array.isArray(data) || data.length === 0 || !Array.isArray(data[0])) {
+        throw new Error('Invalid response format from server.')
+      }
+
       const updatedQueryResult: QueryResult = {
         columns: data[0],
         rows: data.slice(1)
       }
 
-      setTabs(tabs.map(tab =>
+      setTabs(prevTabs => prevTabs.map(tab => 
         tab.id === activeTab ? { ...tab, queryResult: updatedQueryResult, executionTime: performance.now() - startTime } : tab
       ))
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error running query:', error)
       const errorResult: QueryResult = {
         columns: ['Error'],
-        rows: [['Failed to execute query. Please try again.']]
+        rows: [[error.message || 'Failed to execute query. Please try again.']]
       }
 
-      setTabs(tabs.map(tab =>
+      setTabs(prevTabs => prevTabs.map(tab => 
         tab.id === activeTab ? { ...tab, queryResult: errorResult, executionTime: performance.now() - startTime } : tab
       ))
+    } finally {
+      setIsLoading(false) // End loading
     }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && e.ctrlKey) {
+      e.preventDefault() // Prevent default behavior
       const selection = window.getSelection()?.toString()
       runQuery(selection || undefined)
     }
   }
 
   const sortColumn = (columnIndex: number) => {
-    setTabs(tabs.map(tab => {
+    setTabs(prevTabs => prevTabs.map(tab => {
       if (tab.id === activeTab && tab.queryResult) {
         const sortedRows = [...tab.queryResult.rows].sort((a, b) => {
-          if (a[columnIndex] < b[columnIndex]) return -1
-          if (a[columnIndex] > b[columnIndex]) return 1
-          return 0
+          const aVal = a[columnIndex]
+          const bVal = b[columnIndex]
+          
+          // Handle different data types
+          if (typeof aVal === 'number' && typeof bVal === 'number') {
+            return aVal - bVal
+          }
+          return String(aVal).localeCompare(String(bVal))
         })
         return { ...tab, queryResult: { ...tab.queryResult, rows: sortedRows } }
       }
@@ -156,10 +181,11 @@ export default function SqlQueryInterface() {
           <div key={tab.id} className="flex items-center mr-2">
             <button
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center px-4 py-2 text-sm font-medium rounded-t ${activeTab === tab.id
+              className={`flex items-center px-4 py-2 text-sm font-medium rounded-t ${
+                activeTab === tab.id
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-500 hover:text-gray-700'
-                }`}
+              }`}
             >
               {activeTab === tab.id && <CheckCircle2 className="w-4 h-4 mr-2 text-blue-600" />}
               {renamingTabId === tab.id ? (
@@ -199,63 +225,59 @@ export default function SqlQueryInterface() {
         <Button
           onClick={() => runQuery()}
           className="bg-blue-600 text-white hover:bg-blue-700"
+          disabled={isLoading} // Disable while loading
         >
-          Run selected (Ctrl+Enter)
+          {isLoading ? 'Running...' : 'Run selected (Ctrl+Enter)'}
           <ChevronDown className="ml-2 h-4 w-4" />
         </Button>
       </div>
 
       {/* SQL Editor with Highlighting */}
       <div className="relative font-mono text-sm border rounded">
-        {/* SQL Editor with Highlighting */}
-        <div className="relative font-mono text-sm border rounded">
-          {/* SQL Editor with Highlighting */}
-          <div className="relative font-mono text-sm border rounded">
-            <textarea
-              ref={textareaRef}
-              className="w-full h-40 py-2 pl-[59px] pr-2 bg-transparent resize-none outline-none text-transparent z-10 text-left whitespace-pre-wrap box-border" // Changed pl-14 to pl-[57px]
-              style={{
-                caretColor: 'black',
-                lineHeight: '1.5',
-                fontFamily: 'monospace',
-                boxSizing: 'border-box',
-                zIndex: 10,
-              }}
-              value={currentTab?.content || ''}
-              onChange={(e) => updateTabContent(activeTab, e.target.value)}
-              onKeyDown={handleKeyDown}
-              onScroll={handleScroll}
-              spellCheck={false}
-              autoComplete="off"
-            />
-            <pre
-              ref={preRef}
-              className="absolute top-0 left-0 p-2 w-full h-full overflow-auto z-0 text-left bg-transparent pointer-events-none"
-              style={{
-                lineHeight: '1.5',
-                fontFamily: 'monospace',
-                boxSizing: 'border-box',
-                whiteSpace: 'pre-wrap',
-                wordWrap: 'break-word',
-              }}
-            >
-              {currentTab?.content.split('\n').map((line, i) => (
-                <div key={i} style={{ display: 'flex' }}>
-                  <span
-                    className="select-none text-gray-400 mr-2"
-                    style={{ width: '3em', textAlign: 'right', userSelect: 'none' }}
-                  >
-                    {i + 1}
-                  </span>
-                  <span
-                    dangerouslySetInnerHTML={{ __html: highlightSQL(line) }}
-                    style={{ flex: 1 }}
-                  />
-                </div>
-              ))}
-            </pre>
-          </div>
-        </div>
+        <textarea
+          ref={textareaRef}
+          className="w-full h-40 py-2 pl-[57px] pr-2 bg-transparent resize-none outline-none text-transparent z-10 text-left whitespace-pre-wrap box-border"
+          style={{
+            caretColor: 'black',
+            lineHeight: '1.5',
+            fontFamily: 'monospace',
+            boxSizing: 'border-box',
+            zIndex: 10,
+          }}
+          value={currentTab?.content || ''}
+          onChange={(e) => updateTabContent(activeTab, e.target.value)}
+          onKeyDown={handleKeyDown}
+          onScroll={handleScroll}
+          spellCheck={false}
+          autoComplete="off"
+          placeholder=""
+        />
+        <pre
+          ref={preRef}
+          className="absolute top-0 left-0 p-2 w-full h-full overflow-auto z-0 text-left bg-transparent pointer-events-none"
+          style={{
+            lineHeight: '1.5',
+            fontFamily: 'monospace',
+            boxSizing: 'border-box',
+            whiteSpace: 'pre-wrap',
+            wordWrap: 'break-word',
+          }}
+        >
+          {currentTab?.content.split('\n').map((line, i) => (
+            <div key={i} style={{ display: 'flex' }}>
+              <span
+                className="select-none text-gray-400 mr-2"
+                style={{ width: '3em', textAlign: 'right', userSelect: 'none' }}
+              >
+                {i + 1}
+              </span>
+              <span
+                dangerouslySetInnerHTML={{ __html: highlightSQL(line) }}
+                style={{ flex: 1 }}
+              />
+            </div>
+          ))}
+        </pre>
       </div>
 
       {/* Query Results */}
@@ -263,10 +285,11 @@ export default function SqlQueryInterface() {
         <div className="mt-4">
           <div className="flex justify-between items-center mb-2">
             <h2 className="text-lg font-semibold">Raw results</h2>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" disabled>
               <Plus className="h-4 w-4 mr-2" />
               Add visualization
             </Button>
+            {/* Placeholder for future visualization feature */}
           </div>
           <div className="overflow-x-auto border rounded-lg">
             <Table>
@@ -294,7 +317,7 @@ export default function SqlQueryInterface() {
               </TableBody>
             </Table>
           </div>
-          {currentTab.executionTime && (
+          {currentTab.executionTime !== null && (
             <p className="mt-2 text-sm text-gray-500">
               {currentTab.executionTime.toFixed(0)} ms | {currentTab.queryResult.rows.length} row{currentTab.queryResult.rows.length !== 1 ? 's' : ''} returned
             </p>
