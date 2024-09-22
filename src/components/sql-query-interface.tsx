@@ -12,7 +12,7 @@ const highlightSQL = (sql: string) => {
     .replace(/>/g, '&gt;')
 
   // Define regex patterns with word boundaries for accurate matching
-  const keywords = /\b(SELECT|FROM|CREATE|TABLE|INSERT|INTO|VALUES|UPDATE|DELETE|DROP|ALTER|INDEX|VIEW|LAUNCH|SHOW)\b/gi
+  const keywords = /\b(SELECT|FROM|CREATE|TABLE|INSERT|INTO|VALUES|UPDATE|DELETE|DROP|ALTER|INDEX|VIEW|LAUNCH|SHOW|NUMBER|STRING|CONTAINER)\b/gi
   const operators = /\b(\*|=|\+|-|\/|>|<|>=|<=|<>|!=|IS|NULL|AND|OR|LIKE|IN|BETWEEN|EXISTS|TABLES|WHERE)\b/gi
 
   // Apply syntax highlighting
@@ -38,7 +38,7 @@ interface QueryResult {
 
 export default function SqlQueryInterface() {
   const [tabs, setTabs] = useState<Tab[]>([
-    { id: '1', name: 'new query', content: '', queryResult: null, executionTime: null }
+    { id: '1', name: 'New Query', content: '', queryResult: null, executionTime: null }
   ])
   const [activeTab, setActiveTab] = useState('1')
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null)
@@ -50,7 +50,7 @@ export default function SqlQueryInterface() {
   const addTab = () => {
     const newTab = {
       id: Date.now().toString(),
-      name: `new query`,
+      name: `New Query`,
       content: '',
       queryResult: null,
       executionTime: null
@@ -75,12 +75,29 @@ export default function SqlQueryInterface() {
     setTabs(tabs.map(tab => (tab.id === id ? { ...tab, name } : tab)))
   }
 
-  const runQuery = async (selectedText?: string) => {
+  /**
+   * Retrieves the selected text within the textarea.
+   * If no text is selected, returns an empty string.
+   */
+  const getSelectedText = () => {
+    if (textareaRef.current) {
+      const textarea = textareaRef.current
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      return textarea.value.substring(start, end)
+    }
+    return ''
+  }
+
+  /**
+   * Executes the provided SQL query or queries.
+   * @param queries - A string containing one or multiple SQL statements.
+   */
+  const runQuery = async (queries: string) => {
     const currentTab = tabs.find(tab => tab.id === activeTab)
     if (!currentTab) return // Early exit if currentTab is undefined
 
-    const query = selectedText || currentTab.content || ''
-    if (query.trim() === '') {
+    if (queries.trim() === '') {
       alert('Please enter a SQL query to execute.')
       return
     }
@@ -92,7 +109,7 @@ export default function SqlQueryInterface() {
       const response = await fetch('http://localhost:3000/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query })
+        body: JSON.stringify({ query: queries })
       })
 
       if (!response.ok) {
@@ -129,11 +146,38 @@ export default function SqlQueryInterface() {
     }
   }
 
+  /**
+   * Handles the "Run Selected" button click.
+   * If text is selected, runs the selected statement.
+   * If no text is selected, runs all statements separated by ";".
+   */
+  const handleRunSelected = () => {
+    const selectedText = getSelectedText()
+    if (selectedText.trim() !== '') {
+      runQuery(selectedText)
+    } else {
+      // Split the content by ";" to handle multiple statements
+      const currentTab = tabs.find(tab => tab.id === activeTab)
+      if (currentTab) {
+        const allQueries = currentTab.content
+          .split(';')
+          .map(query => query.trim())
+          .filter(query => query.length > 0)
+          .join('; ')
+
+        if (allQueries) {
+          runQuery(allQueries)
+        } else {
+          alert('Please enter a SQL query to execute.')
+        }
+      }
+    }
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && e.ctrlKey) {
       e.preventDefault() // Prevent default behavior
-      const selection = window.getSelection()?.toString()
-      runQuery(selection || undefined)
+      handleRunSelected()
     }
   }
 
@@ -223,11 +267,11 @@ export default function SqlQueryInterface() {
       {/* Run Query Button */}
       <div className="mt-4 mb-2 flex justify-start">
         <Button
-          onClick={() => runQuery()}
+          onClick={handleRunSelected}
           className="bg-blue-600 text-white hover:bg-blue-700"
           disabled={isLoading} // Disable while loading
         >
-          {isLoading ? 'Running...' : 'Run selected (Ctrl+Enter)'}
+          {isLoading ? 'Running...' : 'Run Selected (Ctrl+Enter)'}
           <ChevronDown className="ml-2 h-4 w-4" />
         </Button>
       </div>
@@ -250,7 +294,7 @@ export default function SqlQueryInterface() {
           onScroll={handleScroll}
           spellCheck={false}
           autoComplete="off"
-          placeholder=""
+          placeholder="Write your SQL queries here..."
         />
         <pre
           ref={preRef}
@@ -284,10 +328,10 @@ export default function SqlQueryInterface() {
       {currentTab?.queryResult && (
         <div className="mt-4">
           <div className="flex justify-between items-center mb-2">
-            <h2 className="text-lg font-semibold">Raw results</h2>
+            <h2 className="text-lg font-semibold">Raw Results</h2>
             <Button variant="outline" size="sm" disabled>
               <Plus className="h-4 w-4 mr-2" />
-              Add visualization
+              Add Visualization
             </Button>
             {/* Placeholder for future visualization feature */}
           </div>
