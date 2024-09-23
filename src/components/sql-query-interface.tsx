@@ -251,7 +251,7 @@ export default function SqlQueryInterface() {
     <div className="flex min-h-screen overflow-hidden"> {/* Prevent scrolling on the main container */}
       {/* Sidebar with Logo */}
       <div className="flex-shrink-0 bg-white border-r border-gray-200 p-4">
-        <img src="/logo.png" alt="Logo" className="h-72" /> {/* Positioned on the left with no padding/margin */}
+        <img src="/logo.png" alt="Logo" className="h-56" /> {/* Positioned on the left with no padding/margin */}
       </div>
 
       {/* Main Content */}
