@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useRef, useEffect, MouseEvent } from 'react'
-import { ChevronDown, Plus, CheckCircle2, ChevronUp, ChevronDown as ChevronDownIcon } from 'lucide-react'
+import { Plus, CheckCircle2, ChevronUp, ChevronDown as ChevronDownIcon } from 'lucide-react'
+import { CiPlay1 } from 'react-icons/ci' // Import CiPlay1
+import { GoClock, GoNumber } from 'react-icons/go' // Import GoClock and GoNumber
+import { VscSymbolString } from 'react-icons/vsc'
+import { RxComponentBoolean } from 'react-icons/rx'
+import { GrVirtualMachine } from 'react-icons/gr'
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
@@ -12,8 +17,8 @@ const highlightSQL = (sql: string) => {
     .replace(/>/g, '&gt;')
 
   // Define regex patterns with word boundaries for accurate matching
-  const keywords = /\b(SELECT|FROM|CREATE|TABLE|INSERT|INTO|VALUES|UPDATE|DELETE|DROP|ALTER|INDEX|VIEW|LAUNCH|SHOW|NUMBER|STRING|CONTAINER)\b/gi
-  const operators = /\b(\*|=|\+|-|>|<|>=|<=|<>|!=|IS|NULL|AND|OR|LIKE|IN|BETWEEN|EXISTS|TABLES|WHERE)\b/gi
+  const keywords = /\b(SELECT|FROM|CREATE|TABLE|INSERT|INTO|VALUES|UPDATE|DELETE|DROP|ALTER|INDEX|VIEW|LAUNCH|SHOW|NUMBER|STRING|BOOLEAN|CONTAINER)\b/gi
+  const operators = /\b(\*|=|\+|-|>|<|>=|<=|<>|!=|IS|NULL|AND|OR|LIKE|IN|BETWEEN|EXISTS|TABLES|WHERE|false|true)\b/gi
 
   // Apply syntax highlighting
   const highlighted = escapedSql
@@ -23,17 +28,31 @@ const highlightSQL = (sql: string) => {
   return highlighted
 }
 
+enum ColumnType {
+  NUMBER = 'NUMBER',
+  INT = 'INT',
+  STRING = 'STRING',
+  BOOLEAN = 'BOOLEAN',
+  CONTAINER = 'CONTAINER',
+  UNKNOWN = 'UNKNOWN'
+}
+
+interface Column {
+  name: string
+  type: ColumnType
+}
+
+interface QueryResult {
+  columns: Column[]
+  rows: any[][]
+}
+
 interface Tab {
   id: string
   name: string
   content: string
   queryResult: QueryResult | null
   executionTime: number | null
-}
-
-interface QueryResult {
-  columns: string[]
-  rows: any[][]
 }
 
 export default function SqlQueryInterface() {
@@ -142,7 +161,7 @@ export default function SqlQueryInterface() {
 
       // Determine if the first row contains objects with a "type" property
       const firstRow = data[0]
-      let columns: string[]
+      let columns: Column[]
 
       if (
         Array.isArray(firstRow) &&
@@ -152,11 +171,17 @@ export default function SqlQueryInterface() {
         'type' in firstRow[0] &&
         'name' in firstRow[0]
       ) {
-        // Extract the "name" property from each column object
-        columns = firstRow.map((col: any) => col.name)
+        // Extract the "name" and "type" properties from each column object
+        columns = firstRow.map((col: any) => ({
+          name: col.name,
+          type: (col.type as string).toUpperCase() as ColumnType // Normalize type to uppercase for consistency
+        }))
       } else {
-        // Assume the first row is an array of column names
-        columns = firstRow
+        // Assume the first row is an array of column names with unknown types
+        columns = firstRow.map((colName: string) => ({
+          name: colName,
+          type: ColumnType.UNKNOWN // Default type if not provided
+        }))
       }
 
       const updatedQueryResult: QueryResult = {
@@ -178,7 +203,7 @@ export default function SqlQueryInterface() {
     } catch (error: any) {
       console.error('Error running query:', error)
       const errorResult: QueryResult = {
-        columns: ['Error'],
+        columns: [{ name: 'Error', type: ColumnType.UNKNOWN }],
         rows: [[error.message || 'Failed to execute query. Please try again.']]
       }
 
@@ -319,6 +344,23 @@ export default function SqlQueryInterface() {
     document.removeEventListener('mouseup', handleMouseUp)
   }
 
+  // Utility function to get the appropriate icon based on column type
+  const getTypeIcon = (type: string) => {
+    switch(type) {
+      case ColumnType.NUMBER:
+      case ColumnType.INT:
+        return <GoNumber className="text-black w-5 h-5" />
+      case ColumnType.STRING:
+        return <VscSymbolString className="text-black w-5 h-5" />
+      case ColumnType.BOOLEAN:
+        return <RxComponentBoolean className="text-black w-5 h-5" />
+      case ColumnType.CONTAINER:
+        return <GrVirtualMachine className="text-black w-5 h-5" />
+      default:
+        return null
+    }
+  }
+
   return (
     <div className="flex min-h-screen overflow-hidden"> {/* Prevent scrolling on the main container */}
       {/* Sidebar with Logo */}
@@ -336,7 +378,7 @@ export default function SqlQueryInterface() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center px-4 py-2 text-sm font-medium rounded-t text-gray-800 hover:bg-gray-100`}
               >
-                {activeTab === tab.id && <CheckCircle2 className="w-4 h-4 mr-2 text-blue-600" />}
+                {activeTab === tab.id && <CheckCircle2 className="w-4 h-4 mr-2 text-[#0c9abc]" />} {/* Updated color to match Run button */}
                 {renamingTabId === tab.id ? (
                   <input
                     type="text"
@@ -372,11 +414,13 @@ export default function SqlQueryInterface() {
         <div className="mt-4 mb-2 flex justify-start">
           <Button
             onClick={handleRunSelected}
-            className="bg-[#0c9abc] text-white hover:bg-[#0c9abc] disabled:bg-gray-400"
+            className="bg-[#0c9abc] text-white hover:bg-[#0c9abc] disabled:bg-gray-400 flex items-center" // Ensure flex and alignment
             disabled={isLoading} // Disable while loading
           >
-            {isLoading ? 'Running...' : 'Run Selected (Ctrl+Enter)'}
-            <ChevronDown className="ml-2 h-4 w-4" />
+            {/* CiPlay1 Icon */}
+            <CiPlay1 className="mr-2 w-4 h-4" />
+            {isLoading ? 'Running...' : 'Run Selected'}
+            {/* Removed the ChevronDown icon */}
           </Button>
         </div>
 
@@ -439,21 +483,33 @@ export default function SqlQueryInterface() {
               <div className="max-h-96 overflow-auto"> {/* Set a max height and make it scrollable */}
                 <Table className="table-auto w-full">
                   <TableHeader>
-                    <TableRow className="bg-gray-100">
+                    <TableRow>
                       {currentTab.queryResult.columns.map((column, index) => (
                         <TableHead
                           key={index}
-                          className={`relative cursor-pointer font-semibold text-left ${
+                          className={`relative cursor-pointer font-normal text-left ${
                             index !== currentTab.queryResult!.columns.length - 1 ? 'border-r border-gray-300' : ''
-                          }`}
+                          } text-black text-[15px]`} // Changed from font-semibold and text-base to font-normal and text-[15px]
                           style={{ width: columnWidths[index] || 'auto', minWidth: columnWidths[index] || 50 }}
                         >
-                          <div className="flex items-center">
-                            <span onClick={() => handleSort(index)}>{column}</span>
+                          {/* Flex container to arrange icon, name, and sort button */}
+                          <div className="flex items-center justify-between w-full">
+                            {/* Left side: Icon and Column Name */}
+                            <div className="flex items-center">
+                              {getTypeIcon(column.type)}
+                              <span
+                                onClick={() => handleSort(index)}
+                                className="ml-2 cursor-pointer"
+                              >
+                                {column.name}
+                              </span>
+                            </div>
+                            
+                            {/* Right side: Sort Button */}
                             <button
                               onClick={() => handleSort(index)}
-                              className="ml-1 p-1 focus:outline-none"
-                              aria-label={`Sort by ${column}`}
+                              className="ml-2 p-1 focus:outline-none"
+                              aria-label={`Sort by ${column.name}`}
                             >
                               {sortConfig?.key === index ? (
                                 sortConfig.direction === 'asc' ? (
@@ -466,6 +522,7 @@ export default function SqlQueryInterface() {
                               )}
                             </button>
                           </div>
+                          
                           {/* Resizer */}
                           <div
                             onMouseDown={(e) => handleMouseDown(e, index)}
@@ -496,7 +553,9 @@ export default function SqlQueryInterface() {
               </div>
             </div>
             {currentTab.executionTime !== null && (
-              <p className="mt-2 text-sm text-gray-500">
+              <p className="mt-2 text-sm text-gray-500 flex items-center">
+                {/* GoClock Icon */}
+                <GoClock className="mr-2 w-4 h-4" />
                 {currentTab.executionTime.toFixed(0)} ms | {currentTab.queryResult.rows.length} row{currentTab.queryResult.rows.length !== 1 ? 's' : ''} returned
               </p>
             )}
