@@ -3,7 +3,8 @@ import React, { useState, useRef, useEffect, MouseEvent } from 'react'
 import { Plus, CheckCircle2, ChevronUp, ChevronDown as ChevronDownIcon } from 'lucide-react'
 import { CiPlay1 } from 'react-icons/ci' // Import CiPlay1
 import { GoClock, GoNumber } from 'react-icons/go' // Import GoClock and GoNumber
-import { VscSymbolString } from 'react-icons/vsc'
+// import { VscSymbolString } from 'react-icons/vsc'
+import { VscSymbolKey } from 'react-icons/vsc'
 import { RxComponentBoolean } from 'react-icons/rx'
 import { GrVirtualMachine } from 'react-icons/gr'
 import { Button } from "@/components/ui/button"
@@ -351,7 +352,7 @@ export default function SqlQueryInterface() {
       case ColumnType.INT:
         return <GoNumber className="text-black w-5 h-5" />
       case ColumnType.STRING:
-        return <VscSymbolString className="text-black w-5 h-5" />
+        return <VscSymbolKey className="text-black w-5 h-5" />
       case ColumnType.BOOLEAN:
         return <RxComponentBoolean className="text-black w-5 h-5" />
       case ColumnType.CONTAINER:
