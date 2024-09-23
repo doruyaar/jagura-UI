@@ -29,7 +29,7 @@ const highlightSQL = (sql: string) => {
     .replace(/>/g, "&gt;");
 
   const keywords =
-    /\b(SELECT|FROM|CREATE|TABLE|INSERT|INTO|VALUES|UPDATE|DELETE|DROP|ALTER|INDEX|VIEW|LAUNCH|SHOW|NUMBER|STRING|BOOLEAN|CONTAINER)\b/gi;
+    /\b(SELECT|FROM|CREATE|STOP|REMOVE|TABLE|INSERT|INTO|VALUES|UPDATE|DELETE|DROP|ALTER|INDEX|VIEW|LAUNCH|SHOW|NUMBER|STRING|BOOLEAN|CONTAINER)\b/gi;
   const operators =
     /\b(\*|=|\+|-|>|<|>=|<=|<>|!=|IS|NULL|metadata|run_cmd|AND|OR|LIKE|IN|BETWEEN|EXISTS|TABLES|WHERE|false|true)\b/gi;
 
