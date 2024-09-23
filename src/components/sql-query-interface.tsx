@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, MouseEvent } from 'react'
 import { ChevronDown, Plus, CheckCircle2, ChevronUp, ChevronDown as ChevronDownIcon } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -44,9 +44,17 @@ export default function SqlQueryInterface() {
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(false) // Loading state
   const [sortConfig, setSortConfig] = useState<{ key: number, direction: 'asc' | 'desc' } | null>(null)
+  
+  // Add state for column widths
+  const [columnWidths, setColumnWidths] = useState<number[]>([])
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const preRef = useRef<HTMLPreElement>(null)
+
+  // Variables for resizing
+  const resizingCol = useRef<number | null>(null)
+  const startX = useRef<number>(0)
+  const startWidth = useRef<number>(0)
 
   // Prevent body from scrolling
   useEffect(() => {
@@ -125,21 +133,45 @@ export default function SqlQueryInterface() {
         throw new Error(`Server responded with status ${response.status}`)
       }
 
-      const jsonRes = await response.json() as {result: any[][]}
+      const jsonRes = await response.json() as { result: any[][] }
       const data: any[][] = jsonRes.result
 
       if (!Array.isArray(data) || data.length === 0 || !Array.isArray(data[0])) {
         throw new Error('Invalid response format from server.')
       }
 
+      // Determine if the first row contains objects with a "type" property
+      const firstRow = data[0]
+      let columns: string[]
+
+      if (
+        Array.isArray(firstRow) &&
+        firstRow.length > 0 &&
+        typeof firstRow[0] === 'object' &&
+        firstRow[0] !== null &&
+        'type' in firstRow[0] &&
+        'name' in firstRow[0]
+      ) {
+        // Extract the "name" property from each column object
+        columns = firstRow.map((col: any) => col.name)
+      } else {
+        // Assume the first row is an array of column names
+        columns = firstRow
+      }
+
       const updatedQueryResult: QueryResult = {
-        columns: data[0],
+        columns,
         rows: data.slice(1)
       }
 
       setTabs(prevTabs => prevTabs.map(tab => 
         tab.id === activeTab ? { ...tab, queryResult: updatedQueryResult, executionTime: performance.now() - startTime } : tab
       ))
+
+      // Initialize column widths if not already set
+      if (columnWidths.length === 0) {
+        setColumnWidths(updatedQueryResult.columns.map(() => 150)) // Default width
+      }
 
       // Reset sorting after new query
       setSortConfig(null)
@@ -246,6 +278,46 @@ export default function SqlQueryInterface() {
 
   // Using non-null assertion operator since tabs always have at least one tab
   const currentTab = tabs.find(tab => tab.id === activeTab)! 
+
+  /**
+   * Handles the mouse down event on the resizer.
+   * @param e - Mouse event
+   * @param index - Column index
+   */
+  const handleMouseDown = (e: MouseEvent, index: number) => {
+    resizingCol.current = index
+    startX.current = e.clientX
+    startWidth.current = columnWidths[index]
+
+    // Add event listeners for mouse move and mouse up
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }
+
+  /**
+   * Handles the mouse move event during resizing.
+   * @param e - Mouse event
+   */
+  const handleMouseMove = (e: globalThis.MouseEvent) => {
+    if (resizingCol.current === null) return
+    const deltaX = e.clientX - startX.current
+    const newWidth = Math.max(startWidth.current + deltaX, 50) // Minimum width
+
+    setColumnWidths(prevWidths => {
+      const updatedWidths = [...prevWidths]
+      updatedWidths[resizingCol.current!] = newWidth
+      return updatedWidths
+    })
+  }
+
+  /**
+   * Handles the mouse up event to stop resizing.
+   */
+  const handleMouseUp = () => {
+    resizingCol.current = null
+    document.removeEventListener('mousemove', handleMouseMove)
+    document.removeEventListener('mouseup', handleMouseUp)
+  }
 
   return (
     <div className="flex min-h-screen overflow-hidden"> {/* Prevent scrolling on the main container */}
@@ -371,12 +443,13 @@ export default function SqlQueryInterface() {
                       {currentTab.queryResult.columns.map((column, index) => (
                         <TableHead
                           key={index}
-                          className={`cursor-pointer font-semibold text-left ${
+                          className={`relative cursor-pointer font-semibold text-left ${
                             index !== currentTab.queryResult!.columns.length - 1 ? 'border-r border-gray-300' : ''
                           }`}
+                          style={{ width: columnWidths[index] || 'auto', minWidth: columnWidths[index] || 50 }}
                         >
                           <div className="flex items-center">
-                            <span>{column}</span>
+                            <span onClick={() => handleSort(index)}>{column}</span>
                             <button
                               onClick={() => handleSort(index)}
                               className="ml-1 p-1 focus:outline-none"
@@ -393,6 +466,11 @@ export default function SqlQueryInterface() {
                               )}
                             </button>
                           </div>
+                          {/* Resizer */}
+                          <div
+                            onMouseDown={(e) => handleMouseDown(e, index)}
+                            className="absolute right-0 top-0 h-full w-2 cursor-col-resize"
+                          />
                         </TableHead>
                       ))}
                     </TableRow>
@@ -406,6 +484,7 @@ export default function SqlQueryInterface() {
                             className={`text-left ${
                               cellIndex !== currentTab.queryResult!.columns.length - 1 ? 'border-r border-gray-200' : ''
                             }`}
+                            style={{ width: columnWidths[cellIndex] || 'auto', minWidth: columnWidths[cellIndex] || 50 }}
                           >
                             {cell}
                           </TableCell>
