@@ -10,7 +10,7 @@ import { CiPlay1 } from "react-icons/ci";
 import { GoClock, GoNumber, GoTerminal } from "react-icons/go";
 import { VscSymbolKey } from "react-icons/vsc";
 import { RxComponentBoolean } from "react-icons/rx";
-import { FaComputer} from "react-icons/fa6";
+import { FaComputer } from "react-icons/fa6"; // Ensure you have fa6 installed
 import { BsExclamationOctagon, BsClipboardData } from "react-icons/bs";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,7 +29,7 @@ const highlightSQL = (sql: string) => {
     .replace(/>/g, "&gt;");
 
   const keywords =
-    /\b(SELECT|FROM|CREATE|STOP|REMOVE|TABLE|INSERT|INTO|VALUES|UPDATE|DELETE|DROP|ALTER|INDEX|VIEW|LAUNCH|SHOW|NUMBER|STRING|BOOLEAN|CONTAINER)\b/gi;
+    /\b(SELECT|FROM|CREATE|STOP|REMOVE|TABLE|INSERT|INTO|VALUES|UPDATE|DELETE|DROP|ALTER|INDEX|VIEW|LAUNCH|SHOW|NUMBER|STRING|BOOLEAN|CONTAINER|START|PAUSE|UNPAUSE|REMOVE|RESTART|KILL)\b/gi;
   const operators =
     /\b(\*|=|\+|-|>|<|>=|<=|<>|!=|IS|NULL|metadata|run_cmd|AND|OR|LIKE|IN|BETWEEN|EXISTS|TABLES|WHERE|false|true)\b/gi;
 
@@ -390,10 +390,68 @@ export default function SqlQueryInterface() {
     }
   };
 
+  // ====== Additions Start Here ======
+
+  // State variables for the image dialog
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  // Array of image paths
+  const images = ["/img1.jpg", "/img2.jpg", "/img3.jpg"]; // Add more images as needed
+
+  // Handlers to navigate images using keyboard
+  const showNextImage = () => {
+    setCurrentImageIndex((prevIndex) =>
+      prevIndex === images.length - 1 ? 0 : prevIndex + 1
+    );
+  };
+
+  const showPrevImage = () => {
+    setCurrentImageIndex((prevIndex) =>
+      prevIndex === 0 ? images.length - 1 : prevIndex - 1
+    );
+  };
+
+  // Close dialog on pressing 'Esc' key and handle arrow navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsDialogOpen(false);
+      }
+      // Add keyboard navigation for arrows
+      if (isDialogOpen) {
+        if (e.key === "ArrowLeft") {
+          showPrevImage();
+        } else if (e.key === "ArrowRight") {
+          showNextImage();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isDialogOpen]);
+
+  // Handle overlay click to close the dialog
+  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) {
+      setIsDialogOpen(false);
+    }
+  };
+
+  // ====== Additions End Here ======
+
   return (
     <div className="flex min-h-screen overflow-hidden">
       <div className="flex-shrink-0 bg-white border-r border-gray-200">
-        <img src="/logo.png" alt="Logo" className="h-48" />
+        {/* Add onClick to open the dialog */}
+        <img
+          src="/logo.png"
+          alt="Logo"
+          className="h-48 cursor-pointer"
+          onClick={() => setIsDialogOpen(true)}
+        />
       </div>
 
       <div className="flex-grow p-2">
@@ -504,9 +562,9 @@ export default function SqlQueryInterface() {
 
         {currentTab?.queryResult && (
           <div className="mt-4">
-            <div className="flex justify-between items-center mb-2">
+            {/* <div className="flex justify-between items-center mb-2">
               <h2 className="text-lg font-semibold">Results:</h2>
-            </div>
+            </div> */}
             <div className="border rounded-lg">
               <div className="max-h-96 overflow-auto">
                 <Table className="table-auto w-full">
@@ -516,7 +574,8 @@ export default function SqlQueryInterface() {
                         <TableHead
                           key={index}
                           className={`relative cursor-pointer font-normal text-left ${
-                            index !== currentTab.queryResult!.columns.length - 1
+                            index !==
+                            currentTab.queryResult!.columns.length - 1
                               ? "border-r border-gray-300"
                               : ""
                           } text-black text-[15px]`}
@@ -618,6 +677,27 @@ export default function SqlQueryInterface() {
           </div>
         )}
       </div>
+
+      {/* ====== Dialog Component ====== */}
+      {isDialogOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 transition-opacity duration-300"
+          onClick={handleOverlayClick} // Corrected onClick handler
+        >
+          <div className="relative bg-white rounded-2xl shadow-lg max-w-4xl w-full mx-4 md:mx-0 overflow-hidden">
+
+            {/* Image Display */}
+            <div className="flex justify-center items-center bg-gray-100 relative">
+              <img
+                src={images[currentImageIndex]}
+                alt={`Image ${currentImageIndex + 1}`}
+                className="object-contain max-h-[70vh] w-full"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ====== End of Dialog Component ====== */}
     </div>
   );
 }
