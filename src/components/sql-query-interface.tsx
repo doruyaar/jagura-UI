@@ -7,10 +7,19 @@ import {
   ChevronDown as ChevronDownIcon,
 } from "lucide-react";
 import { CiPlay1 } from "react-icons/ci";
-import { GoClock, GoNumber, GoTerminal } from "react-icons/go";
+import { GoClock, GoTerminal } from "react-icons/go";
 import { VscSymbolKey } from "react-icons/vsc";
-import { RxComponentBoolean } from "react-icons/rx";
-import { FaComputer } from "react-icons/fa6"; // Ensure you have fa6 installed
+import { RxComponentBoolean, RxResume } from "react-icons/rx";
+import { IoIosRemoveCircleOutline } from "react-icons/io";
+import { VscDebugRestart } from "react-icons/vsc";
+import { 
+  FaComputer,
+  FaRegCirclePlay,
+  FaRegCircleStop,
+  FaRegCirclePause,
+  FaRegCircleXmark
+} from "react-icons/fa6";
+import { TiSortNumerically } from "react-icons/ti";
 import { BsExclamationOctagon, BsClipboardData } from "react-icons/bs";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,8 +56,15 @@ enum ColumnType {
   BOOLEAN = "BOOLEAN",
   CONTAINER = "CONTAINER",
   METADATA = "METADATA",
-  RUN = "RUN",
+  RUN_CMD = "RUN_CMD",
   UNKNOWN = "UNKNOWN",
+  START = "START",
+  STOP = "STOP",
+  PAUSE = "PAUSE",
+  UNPAUSE = "UNPAUSE",
+  REMOVE = "REMOVE",
+  RESTART = "RESTART",
+  KILL = "KILL",
 }
 
 interface Column {
@@ -374,7 +390,7 @@ export default function SqlQueryInterface() {
     switch (type) {
       case ColumnType.NUMBER:
       case ColumnType.INT:
-        return <GoNumber className="text-black w-5 h-5" />;
+        return <TiSortNumerically className="text-black w-5 h-5" />;
       case ColumnType.STRING:
         return <VscSymbolKey className="text-black w-5 h-5" />;
       case ColumnType.BOOLEAN:
@@ -383,8 +399,22 @@ export default function SqlQueryInterface() {
         return <FaComputer className="text-black w-5 h-5" />;
       case ColumnType.METADATA:
         return <BsClipboardData className="text-black w-5 h-5" />;
-      case ColumnType.RUN:
+      case ColumnType.RUN_CMD:
         return <GoTerminal className="text-black w-5 h-5" />;
+      case ColumnType.START:
+        return <FaRegCirclePlay className="text-black w-5 h-5" />;
+      case ColumnType.STOP:
+        return <FaRegCircleStop className="text-black w-5 h-5" />;
+      case ColumnType.PAUSE:
+        return <FaRegCirclePause className="text-black w-5 h-5" />;
+      case ColumnType.UNPAUSE:
+        return <RxResume className="text-black w-5 h-5" />;
+      case ColumnType.REMOVE:
+        return <IoIosRemoveCircleOutline className="text-black w-5 h-5" />;
+      case ColumnType.RESTART:
+        return <VscDebugRestart className="text-black w-5 h-5" />;
+      case ColumnType.KILL:
+        return <FaRegCircleXmark className="text-black w-5 h-5" />;
       default:
         return null;
     }
