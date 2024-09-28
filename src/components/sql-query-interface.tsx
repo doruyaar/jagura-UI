@@ -6,19 +6,25 @@ import {
   ChevronUp,
   ChevronDown as ChevronDownIcon,
 } from "lucide-react";
-import { CiPlay1 } from "react-icons/ci";
-import { GoClock, GoTerminal } from "react-icons/go";
+import {
+  GoClock,
+  GoTerminal,
+  GoHistory,
+} from "react-icons/go";
 import { VscSymbolKey } from "react-icons/vsc";
 import { RxComponentBoolean, RxResume } from "react-icons/rx";
 import { IoIosRemoveCircleOutline } from "react-icons/io";
 import { VscDebugRestart } from "react-icons/vsc";
-import { 
+import { TbDatabaseSearch } from "react-icons/tb";
+import {
   FaComputer,
   FaRegCirclePlay,
   FaRegCircleStop,
   FaRegCirclePause,
-  FaRegCircleXmark
+  FaRegCircleXmark,
+  FaPlay
 } from "react-icons/fa6";
+
 import { TiSortNumerically } from "react-icons/ti";
 import { BsExclamationOctagon, BsClipboardData } from "react-icons/bs";
 import { Button } from "@/components/ui/button";
@@ -104,6 +110,7 @@ export default function SqlQueryInterface() {
   } | null>(null);
 
   const [columnWidths, setColumnWidths] = useState<number[]>([]);
+  const [progress, setProgress] = useState<number>(0); // Progress percentage for the loading bar
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
@@ -167,7 +174,16 @@ export default function SqlQueryInterface() {
     }
 
     setIsLoading(true);
+    setProgress(0);
     const startTime = performance.now();
+
+    const progressInterval = setInterval(() => {
+      setProgress((prev) => {
+        const increment = Math.random() * 20; // Random increment between 0 and 20
+        const newProgress = Math.min(prev + increment, 98); // Cap at 98%
+        return newProgress;
+      });
+    }, 500);
 
     try {
       const response = await fetch("http://localhost:3000/query", {
@@ -273,6 +289,8 @@ export default function SqlQueryInterface() {
 
       setSortConfig(null);
     } finally {
+      clearInterval(progressInterval);
+      setProgress(100);
       setIsLoading(false);
     }
   };
@@ -420,8 +438,6 @@ export default function SqlQueryInterface() {
     }
   };
 
-  // ====== Additions Start Here ======
-
   // State variables for the image dialog
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -469,8 +485,6 @@ export default function SqlQueryInterface() {
       setIsDialogOpen(false);
     }
   };
-
-  // ====== Additions End Here ======
 
   return (
     <div className="flex min-h-screen overflow-hidden">
@@ -534,7 +548,7 @@ export default function SqlQueryInterface() {
             className="bg-[#0c9abc] text-white hover:bg-[#0c9abc] disabled:bg-gray-400 flex items-center"
             disabled={isLoading}
           >
-            <CiPlay1 className="mr-2 w-4 h-4" />
+            <FaPlay className="mr-2 w-4 h-4" />
             {isLoading ? "Running..." : "Run Selected"}
           </Button>
         </div>
@@ -590,87 +604,108 @@ export default function SqlQueryInterface() {
           </pre>
         </div>
 
-        {currentTab?.queryResult && (
+        {/* Table Section */}
+        {currentTab?.queryResult || isLoading ? (
           <div className="mt-4">
-            {/* <div className="flex justify-between items-center mb-2">
-              <h2 className="text-lg font-semibold">Results:</h2>
-            </div> */}
             <div className="border rounded-lg">
               <div className="max-h-96 overflow-auto">
                 <Table className="table-auto w-full">
                   <TableHeader>
                     <TableRow>
-                      {currentTab.queryResult.columns.map((column, index) => (
+                      {isLoading ? (
                         <TableHead
-                          key={index}
-                          className={`relative cursor-pointer font-normal text-left ${
-                            index !==
-                            currentTab.queryResult!.columns.length - 1
-                              ? "border-r border-gray-300"
-                              : ""
-                          } text-black text-[15px]`}
-                          style={{
-                            width: columnWidths[index] || "auto",
-                            minWidth: columnWidths[index] || 50,
-                          }}
+                          className="relative font-normal text-left text-black text-[15px]"
+                          colSpan={1000} // Arbitrary large number to span all columns
                         >
-                          <div className="flex items-center justify-between w-full">
-                            <div className="flex items-center">
-                              {getTypeIcon(column.type)}
-                              {column.name && (
-                                <span
-                                  onClick={() => handleSort(index)}
-                                  className="ml-2 cursor-pointer"
-                                >
-                                  {column.name}
-                                </span>
-                              )}
-                            </div>
-
-                            {column.name && (
-                              <button
-                                onClick={() => handleSort(index)}
-                                className="ml-2 p-1 focus:outline-none"
-                                aria-label={`Sort by ${column.name}`}
-                              >
-                                {sortConfig?.key === index ? (
-                                  sortConfig.direction === "asc" ? (
-                                    <ChevronUp className="w-3 h-3" />
-                                  ) : (
-                                    <ChevronDownIcon className="w-3 h-3" />
-                                  )
-                                ) : (
-                                  <ChevronDownIcon className="w-3 h-3 rotate-180" />
-                                )}
-                              </button>
-                            )}
+                          <div className="flex items-center">
+                            <TbDatabaseSearch className="mr-2" />
+                            Executing
                           </div>
-
-                          <div
-                            onMouseDown={(e) => handleMouseDown(e, index)}
-                            className="absolute right-0 top-0 h-full w-2 cursor-col-resize"
-                          />
                         </TableHead>
-                      ))}
+                      ) : (
+                        currentTab.queryResult!.columns.map(
+                          (column, index) => (
+                            <TableHead
+                              key={index}
+                              className={`relative cursor-pointer font-normal text-left ${
+                                index !==
+                                currentTab.queryResult!.columns.length - 1
+                                  ? "border-r border-gray-300"
+                                  : ""
+                              } text-black text-[15px]`}
+                              style={{
+                                width: columnWidths[index] || "auto",
+                                minWidth: columnWidths[index] || 50,
+                              }}
+                            >
+                              <div className="flex items-center justify-between w-full">
+                                <div className="flex items-center">
+                                  {getTypeIcon(column.type)}
+                                  {column.name && (
+                                    <span
+                                      onClick={() => handleSort(index)}
+                                      className="ml-2 cursor-pointer"
+                                    >
+                                      {column.name}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {column.name && (
+                                  <button
+                                    onClick={() => handleSort(index)}
+                                    className="ml-2 p-1 focus:outline-none"
+                                    aria-label={`Sort by ${column.name}`}
+                                  >
+                                    {sortConfig?.key === index ? (
+                                      sortConfig.direction === "asc" ? (
+                                        <ChevronUp className="w-3 h-3" />
+                                      ) : (
+                                        <ChevronDownIcon className="w-3 h-3" />
+                                      )
+                                    ) : (
+                                      <ChevronDownIcon className="w-3 h-3 rotate-180" />
+                                    )}
+                                  </button>
+                                )}
+                              </div>
+
+                              <div
+                                onMouseDown={(e) => handleMouseDown(e, index)}
+                                className="absolute right-0 top-0 h-full w-2 cursor-col-resize"
+                              />
+                            </TableHead>
+                          )
+                        )
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {currentTab.queryResult.columns.length === 1 &&
-                    currentTab.queryResult.columns[0].name === "" &&
-                    currentTab.queryResult.rows.length > 0 ? (
+                    {isLoading ? (
                       <TableRow>
                         <TableCell
                           className="text-left"
-                          colSpan={currentTab.queryResult.columns.length}
+                          colSpan={1000} // Arbitrary large number to span all columns
+                        >
+                          <p>The query is currently running</p>
+                        </TableCell>
+                      </TableRow>
+                    ) : currentTab.queryResult!.columns.length === 1 &&
+                      currentTab.queryResult!.columns[0].name === "" &&
+                      currentTab.queryResult!.rows.length > 0 ? (
+                      <TableRow>
+                        <TableCell
+                          className="text-left"
+                          colSpan={currentTab.queryResult!.columns.length}
                         >
                           <div className="flex items-center text-red-500">
                             <BsExclamationOctagon className="mr-2 w-5 h-5" />
-                            {currentTab.queryResult.rows[0][0]}
+                            {currentTab.queryResult!.rows[0][0]}
                           </div>
                         </TableCell>
                       </TableRow>
                     ) : (
-                      currentTab.queryResult.rows.map((row, rowIndex) => (
+                      currentTab.queryResult!.rows.map((row, rowIndex) => (
                         <TableRow key={rowIndex}>
                           {row.map((cell, cellIndex) => (
                             <TableCell
@@ -696,26 +731,50 @@ export default function SqlQueryInterface() {
                 </Table>
               </div>
             </div>
-            {currentTab.executionTime !== null && (
+            {/* Progress Bar */}
+            {isLoading ? (
+              <div className="mt-2 flex items-center">
+                <p className="text-sm text-gray-500 flex items-center mr-2">
+                  <GoHistory className="mr-2 w-4 h-4" />
+                  Processing query...
+                </p>
+                <div
+                  className="relative rounded-full overflow-hidden"
+                  style={{
+                    width: "25%", // Adjusted progress bar to 25% of its original length
+                    height: "1rem", // Increased height to match font size (~16px)
+                    backgroundColor: "#e5e7eb", // Tailwind's gray-200
+                  }}
+                >
+                  <div
+                    className="h-full"
+                    style={{
+                      width: `${progress}%`,
+                      backgroundColor: "#0c9abc", // Same blue as the Run button
+                      transition: "width 0.5s ease-in-out",
+                    }}
+                  ></div>
+                </div>
+              </div>
+            ) : currentTab.executionTime !== null && (
               <p className="mt-2 text-sm text-gray-500 flex items-center">
                 <GoClock className="mr-2 w-4 h-4" />
                 {currentTab.executionTime.toFixed(0)} ms |{" "}
-                {currentTab.queryResult.rows.length} row
-                {currentTab.queryResult.rows.length !== 1 ? "s" : ""} returned
+                {currentTab.queryResult!.rows.length} row
+                {currentTab.queryResult!.rows.length !== 1 ? "s" : ""} returned
               </p>
             )}
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* ====== Dialog Component ====== */}
       {isDialogOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 transition-opacity duration-300"
-          onClick={handleOverlayClick} // Corrected onClick handler
+          onClick={handleOverlayClick}
         >
           <div className="relative bg-white rounded-2xl shadow-lg max-w-4xl w-full mx-4 md:mx-0 overflow-hidden">
-
             {/* Image Display */}
             <div className="flex justify-center items-center bg-gray-100 relative">
               <img
