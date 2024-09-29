@@ -16,6 +16,7 @@ import { RxComponentBoolean, RxResume } from "react-icons/rx";
 import { IoIosRemoveCircleOutline } from "react-icons/io";
 import { VscDebugRestart } from "react-icons/vsc";
 import { TbDatabaseSearch } from "react-icons/tb";
+import { CiMedicalClipboard } from "react-icons/ci";
 import {
   FaComputer,
   FaRegCirclePlay,
@@ -71,6 +72,9 @@ enum ColumnType {
   REMOVE = "REMOVE",
   RESTART = "RESTART",
   KILL = "KILL",
+  COUNT = "COUNT",
+  SUM = "SUM",
+  LENGTH = "LENGTH",
 }
 
 interface Column {
@@ -433,6 +437,12 @@ export default function SqlQueryInterface() {
         return <VscDebugRestart className="text-black w-5 h-5" />;
       case ColumnType.KILL:
         return <FaRegCircleXmark className="text-black w-5 h-5" />;
+      case ColumnType.COUNT:
+        return <CiMedicalClipboard className="text-black w-5 h-5" />;
+      case ColumnType.SUM:
+        return <CiMedicalClipboard className="text-black w-5 h-5" />;
+      case ColumnType.LENGTH:
+        return <CiMedicalClipboard className="text-black w-5 h-5" />;
       default:
         return null;
     }
